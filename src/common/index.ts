@@ -1,13 +1,5 @@
 export { AppExceptionFilter } from './exceptions/app-exception-filter';
 export {VARIABLE} from './constants'
-/*
-|--------------------------------------------------------------------------
-| Graphql Helpers
-|--------------------------------------------------------------------------
-*/
-export * from './graphql-helpers/paginated.helper';
-export * from './graphql-helpers/base.model.helper';
-export * from './graphql-helpers/filter.helper';
 
 /*
 |--------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { NestMiddleware, HttpException, HttpStatus } from '@nestjs/common';
+import { NestMiddleware, HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 
 import { JwtsService } from '@lib/jwts/jwts.service';
@@ -7,6 +7,8 @@ export class AuthMiddleware implements NestMiddleware {
   constructor(private jwtsService: JwtsService) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
+    console.log('req:', req.headers['x-api-key']);
+    throw new UnauthorizedException('invalid key...');
     //console.log(req)
     //const context = {req: Request, res: Response};
     //const ctx = GqlExecutionContext.create(context).getInfo();

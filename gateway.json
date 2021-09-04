@@ -1,0 +1,14 @@
+{
+  "devServiceLists": [
+    {
+      "name": "authenticate",
+      "url": "http://localhost:5002/graphql"
+    }
+  ],
+  "proServiceLists": [
+    {
+      "name": "authenticate",
+      "url": "http://localhost:5002/graphql"
+    }
+  ]
+}

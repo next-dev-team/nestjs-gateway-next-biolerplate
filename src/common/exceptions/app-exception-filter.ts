@@ -1,17 +1,4 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
-// @Catch(HttpException)
-// export class AppExceptionFilter implements ExceptionFilter {
-//   catch(exception: HttpException, host: ArgumentsHost) {
-//     const gqlHost = GqlArgumentsHost.create(host);
-//     console.log('host:', gqlHost);
-//     const excFilter = exception.getResponse();
-//     console.log('exception filter:', excFilter);
-//     const { statusCode, message } = exception.getResponse() as { statusCode: number; error: string; message: any };
-//     // console.log('res:', res);
-//     return new HttpException({ statusCode, message }, statusCode);
-//   }
-// }
-
 @Catch(HttpException)
 export class AppExceptionFilter implements ExceptionFilter {
   catch(exception: HttpException, host: ArgumentsHost) {

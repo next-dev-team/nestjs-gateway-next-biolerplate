@@ -1,90 +1,85 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { GraphQLModule } from '@nestjs/graphql';
+import { RemoteGraphQLDataSource } from '@apollo/gateway';
+import { Module } from '@nestjs/common';
+import { GATEWAY_BUILD_SERVICE, GraphQLGatewayModule } from '@nestjs/graphql';
 import { JwtModule } from '@nestjs/jwt';
-import { MongooseModule } from '@nestjs/mongoose';
-import { GraphQLError } from 'graphql';
 
 import { ConfigModule } from '@lib/config';
 import { IORedisModule } from '@lib/ioredis';
 
+import * as Gateway from '../gateway.json';
 import { ApisModules } from './api/api.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-// import configuration from './config/configuration';
-import { MongooseConfigService } from './config/mongooseconfigservice';
-import { EmailsModule } from './emails/emails.module';
-import { GraphQLModules } from './graphql/graphql.module';
-import { HelpersModule } from './helpers/helpers.module';
 import { IORedisController } from './ioredis/ioredis.controller';
 import { JwtsModule } from './lib/jwts/jwts.module';
 import { PwdModule } from './pwd/pwd.module';
-import { AuthMiddleware } from './shared/auth.middleware';
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 require('dotenv').config();
+class AuthenticatedDataSource extends RemoteGraphQLDataSource {
+  async willSendRequest({ request, context }) {
+    console.log('context:', context.headers);
+
+    request.http.headers.set(
+      'x-api-key',
+      context.headers && context.headers['x-api-key'] ? context.headers['x-api-key'] : null
+    );
+    request.http.headers.set(
+      'authorization',
+      context.headers && context.headers['authorization'] ? context.headers['authorization'] : null
+    );
+  }
+}
 
 @Module({
-  imports: [
-    // ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
-    MongooseModule.forRootAsync({ useClass: MongooseConfigService }),
-    GraphQLModule.forRoot({
-      autoSchemaFile: 'schema.gql', //join(process.cwd(), 'src/schema.gql'),
-      //typePaths: ['./**/*.gql'],
-      //fieldResolverEnhancers: ['interceptors'],
-      introspection: true,
-      debug: true,
-      //installSubscriptionHandlers: true,
-      formatError: (error: GraphQLError) => {
-        const responseError = {} as {
-          statusCode: number;
-          message: string;
-          error: string;
-          stacktrace: any[];
-        };
-        const ext = error.extensions;
-        const statusCode = ext?.response?.statusCode || 500;
-        let message = ext?.response?.message || 'Internal server error';
-        message = Array.isArray(message) ? message[0] : message;
-        const errors = ext?.response?.error || 'Internal Server Error';
-        const stacktrace = ext?.exception?.stacktrace || [];
-        responseError.statusCode = statusCode;
-        responseError.message = message;
-        responseError.error = errors;
-        responseError.stacktrace = stacktrace;
-        return responseError;
+  providers: [
+    {
+      provide: AuthenticatedDataSource,
+      useValue: AuthenticatedDataSource
+    },
+    {
+      provide: GATEWAY_BUILD_SERVICE,
+      useFactory: AuthenticatedDataSource => {
+        return ({ name, url }) => new AuthenticatedDataSource({ url });
       },
-      context: ({ req }) => ({ req })
+      inject: [AuthenticatedDataSource]
+    }
+  ],
+  exports: [GATEWAY_BUILD_SERVICE]
+})
+class BuildServiceModule {}
+@Module({
+  imports: [
+    GraphQLGatewayModule.forRootAsync({
+      useFactory: async () => ({
+        gateway: {
+          serviceList: process.env.NODE_ENV == 'production' ? Gateway.proServiceLists : Gateway.devServiceLists
+        },
+        server: {
+          context: ({ req }) => ({
+            headers: req.headers
+          })
+        }
+      }),
+      imports: [BuildServiceModule],
+      inject: [GATEWAY_BUILD_SERVICE]
     }),
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: process.env.JWT_EXPIRED }
     }),
-    HelpersModule,
     ConfigModule,
     IORedisModule,
     ApisModules,
     PwdModule,
-    EmailsModule,
-    JwtsModule,
-    GraphQLModules
+    JwtsModule
   ],
   controllers: [AppController, IORedisController],
-  providers: [
-    AppService
-    // IORedisService,
-    // { provide: APP_FILTER, useClass: AppExceptionFilter },
-    // {
-    //   provide: APP_PIPE,
-    //   useClass: ValidationPipe
-    // }
-  ]
+  providers: [AppService]
 })
-//export class AppModule {}
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(AuthMiddleware)
-      //.exclude({path: '/api/login', method: RequestMethod.POST})
-      //.exclude({ path: 'user', method.mutations: 'test'})
-      .forRoutes('graphql');
-  }
-}
+export class AppModule {}
+// export class AppModule implements NestModule {
+//   configure(consumer: MiddlewareConsumer) {
+//     consumer.apply(AuthMiddleware).forRoutes('graphql');
+//   }
+// }
